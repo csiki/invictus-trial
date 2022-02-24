@@ -1,4 +1,9 @@
 .idea/
 data/
+models/
+checkpoints/
+logs/
+lightning_logs/
+__pycache__/
 project_info.pdf
-
+brelu.pdf
