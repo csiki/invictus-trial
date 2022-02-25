@@ -10,12 +10,14 @@ from pytorch_lightning import loggers as pl_loggers
 import matplotlib.pyplot as plt
 
 from model import EMGModel
+from model2 import EMGModel2
 
 
 class EMGDataset(data.Dataset):
-    def __init__(self, session_paths, slices=None):
+    def __init__(self, session_paths, slices=None, ver=1):
         sessions = [pd.read_csv(p).to_numpy(dtype=np.float32) for p in session_paths]
         slices = [(0., 1.) for _ in sessions] if slices is None else slices
+        self.ver = ver
 
         self.xs = [torch.tensor(sess[int(sli[0] * sess.shape[0]):int(sli[1] * sess.shape[0]), :8])
                    for sess, sli in zip(sessions, slices)]
@@ -31,6 +33,12 @@ class EMGDataset(data.Dataset):
         self.xs = [(x - self.x_mins) / (self.x_maxs - self.x_mins) for x in self.xs]
         self.ys = [(y - self.y_mins) / (self.y_maxs - self.y_mins) for y in self.ys]
 
+        if ver == 2:
+            self.x_mins = self.x_mins[:, None]
+            self.x_maxs = self.x_maxs[:, None]
+            self.y_mins = self.y_mins[:, None]
+            self.y_maxs = self.y_maxs[:, None]
+
         self.nsession_samples = [x.shape[0] - 1000 + 1 for x in self.xs]
 
     def __len__(self):
@@ -43,16 +51,23 @@ class EMGDataset(data.Dataset):
             idx -= self.nsession_samples[session_i] - 1
             session_i += 1
 
-        x = self.xs[session_i][None, idx:idx + 1000, :]  # added channel dim
-        y = self.ys[session_i][None, idx:idx + 1000, :]
+        if VER == 1:
+            x = self.xs[session_i][None, idx:idx + 1000, :]  # added channel dim
+            y = self.ys[session_i][None, idx:idx + 1000, :]
+        else:
+            x = self.xs[session_i][idx:idx + 1000, :]  # added channel dim
+            y = self.ys[session_i][idx:idx + 1000, :]
+            x = torch.permute(x, (1, 0))
+            y = torch.permute(y, (1, 0))
 
         return x, y
 
 
 class TrialTask(pl.LightningModule):
 
-    def __init__(self, model, y_mins, y_maxs, **kwargs):
+    def __init__(self, model, y_mins, y_maxs, ver=1, **kwargs):
         super().__init__()
+        self.ver = ver
         self.model = model
         self.y_mins, self.y_maxs = y_mins.cuda(), y_maxs.cuda()
 
@@ -75,13 +90,22 @@ class TrialTask(pl.LightningModule):
             i = np.random.randint(0, 9, 2)
             b = np.random.randint(0, y.shape[0] - 1, 2)
 
-            plt.figure()
-            plt.plot(y[b[0], 0, :, i[0]].cpu().numpy(), label='y')
-            plt.plot(y_hat[b[0], 0, :, i[0]].cpu().numpy(), label='y_hat')
+            if self.ver == 1:
+                plt.figure()
+                plt.plot(y[b[0], 0, :, i[0]].cpu().numpy(), label='y')
+                plt.plot(y_hat[b[0], 0, :, i[0]].cpu().numpy(), label='y_hat')
 
-            plt.figure()
-            plt.plot(y[b[1], 0, :, i[1]].cpu().numpy(), label='y')
-            plt.plot(y_hat[b[1], 0, :, i[1]].cpu().numpy(), label='y_hat')
+                plt.figure()
+                plt.plot(y[b[1], 0, :, i[1]].cpu().numpy(), label='y')
+                plt.plot(y_hat[b[1], 0, :, i[1]].cpu().numpy(), label='y_hat')
+            else:
+                plt.figure()
+                plt.plot(y[b[0], i[0], :].cpu().numpy(), label='y')
+                plt.plot(y_hat[b[0], i[0], :].cpu().numpy(), label='y_hat')
+
+                plt.figure()
+                plt.plot(y[b[1], i[1], :].cpu().numpy(), label='y')
+                plt.plot(y_hat[b[1], i[1], :].cpu().numpy(), label='y_hat')
 
             plt.legend()
             plt.show()
@@ -114,7 +138,12 @@ class TrialTask(pl.LightningModule):
         smoothness = torch.mean(torch.pow(torch.diff(vel, dim=2), 2))
         self.log('fingers', fingers, prog_bar=True)
         self.log('smoothness', smoothness, prog_bar=True)
-        return fingers + 30 * smoothness
+
+        loss = fingers + 10 * smoothness
+        if self.ver == 2:
+            loss += 0.1 * model.kld_loss
+
+        return loss
 
     def predict_step(self, batch, batch_idx, dataloader_idx=0):
         x, y = batch
@@ -143,6 +172,8 @@ class TrialTask(pl.LightningModule):
 
 if __name__ == '__main__':
 
+    VER = 2
+
     session_path = lambda i: f'data/Session {i}.csv'
 
     # train_sessions = [1]
@@ -154,12 +185,12 @@ if __name__ == '__main__':
 
     # train_dataset = EMGDataset([session_path(ts) for ts in train_sessions], train_slices)
     train_dataset = EMGDataset([session_path(i) for i in range(1, 7)
-                                if i not in val_sessions + test_sessions])
-    val_dataset = EMGDataset([session_path(vs) for vs in val_sessions])
+                                if i not in val_sessions + test_sessions], ver=VER)
+    val_dataset = EMGDataset([session_path(vs) for vs in val_sessions], ver=VER)
     # test_dataset = EMGDataset([session_paths[test_session]])
 
     model_settings = {
-        'dropout': 0.2,
+        'dropout': 0.4,
         'res_block_params': [(256, 256, (3, 1)) for _ in range(35)],  # TODO
             #[(256, 256, (5, 1)) for _ in range(10)],
             #[(256, 256, (5, 1)), (256, 512, (5, 1)), (512, 256, (5, 1)), (256, 256, (5, 1))],
@@ -181,14 +212,16 @@ if __name__ == '__main__':
     val_loader = torch.utils.data.DataLoader(val_dataset, shuffle=False, **loader_settings)
     # test_loader = torch.utils.data.DataLoader(test_dataset, **loader_settings)
 
-    prefix = f'gradclip'
+    prefix = f'ver{VER}'
     model_name = f'model_{prefix}_batch-{batch_size}_{datetime.datetime.now().strftime("%H-%M-%S")}_dropout-{model_settings["dropout"]}_' \
                  f'res-{len(model_settings["res_block_params"])}-{model_settings["res_block_params"][0][0]}-{model_settings["res_block_params"][0][2]}'
 
+    resume_from_checkpoint = None # 'checkpoints/model_gradclip_batch-256_16-07-22_dropout-0.2_res-35-256-(3, 1)/epoch=19-step=14879.ckpt'  # or None  # TODO !!!!!!!!!!!!!
+
     print('MODEL:', model_name)
 
-    model = EMGModel(**model_settings)
-    task = TrialTask(model, train_dataset.y_mins, train_dataset.y_maxs, **train_settings)
+    model = EMGModel2(**model_settings) if VER == 2 else EMGModel(**model_settings)
+    task = TrialTask(model, train_dataset.y_mins, train_dataset.y_maxs, ver=VER, **train_settings)
 
     logger = pl_loggers.CSVLogger('logs/', f'{model_name}_logs.csv')  # pl_loggers.TensorBoardLogger("logs/")
 
@@ -200,8 +233,8 @@ if __name__ == '__main__':
     ]
 
     trainer = pl.trainer.Trainer(gpus=1, callbacks=callbacks, max_epochs=epochs, enable_progress_bar=True,
-                                 log_every_n_steps=100, resume_from_checkpoint=None, limit_train_batches=1.0,
-                                 logger=logger, gradient_clip_val=2)
+                                 log_every_n_steps=100, resume_from_checkpoint=resume_from_checkpoint,
+                                 limit_train_batches=1.0, logger=logger, gradient_clip_val=2)
     trainer.fit(task, train_loader, val_loader)
     trainer.save_checkpoint(f'models/{model_name}.pt')
     print(model_name)

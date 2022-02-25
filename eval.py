@@ -9,8 +9,8 @@ for path in glob('logs/*/version_0/metrics.csv'):
     df = pd.read_csv(path)
 
     try:
-        print(f'{name}:\n\tloss = {df["val_loss"].iloc[-1]}; med err: {df["val_med_error"].iloc[-1]}; '
-              f'90%ile err: {df["val_90%ile_error"].iloc[-1]}\n')
+        print(f'{name}:\n\tloss = {df["val_loss"].min()}; med err: {df["val_med_error"].min()}; '
+              f'90%ile err: {df["val_90%ile_error"].min()}\n')
     except:
         # print(f'skipped {name}\n')
         pass

@@ -70,7 +70,7 @@ if __name__ == '__main__':
 
     model_settings = {
         'dropout': 0.2,
-        'res_block_params':  [(256, 256, (3, 1)) for _ in range(30)],
+        'res_block_params':  [(256, 256, (3, 1)) for _ in range(35)],
         # [(256, 256, (5, 1)) for _ in range(10)],
         # [(256, 256, (5, 1)), (256, 512, (5, 1)), (512, 256, (5, 1)), (256, 256, (5, 1))],
         # [(256, 256, (3, 1)), (256, 128, (3, 1)), (128, 64, (3, 1)), (64, 128, (3, 1)), (128, 256, (3, 1))],
@@ -91,7 +91,7 @@ if __name__ == '__main__':
     val_loader = torch.utils.data.DataLoader(val_dataset, shuffle=False, **loader_settings)
     # test_loader = torch.utils.data.DataLoader(test_dataset, **loader_settings)
 
-    model_name = 'model_gradclip_batch-256_14-39-09_dropout-0.1_res-30-256-(3, 1)'
+    model_name = 'model_ver1_batch-256_20-45-32_dropout-0.2_res-35-256-(3, 1)'
     checkpoint_path = f'checkpoints/{model_name}'
     # 'model__batch-256_01-12-11_dropout-0.2_res-10-256-(5, 1)'
 
@@ -163,6 +163,15 @@ if __name__ == '__main__':
     plt.legend()
 
     plt.show()
+
+    act_df_data_y = {f'{i}_y': df_data_y[:, i] for i in range(10)}
+    act_df_data_y_hat = {f'{i}_y^': df_data_y_hat[:, i] for i in range(10)}
+    act_df = {f'y_{i//2}' if i % 2 == 0 else f'y^_{i//2}':
+                  df_data_y[:, i//2] if i % 2 == 0 else df_data_y_hat[:, i//2] for i in range(20)}
+
+    df = pd.DataFrame({**act_df}) # {**act_df_data_y, **act_df_data_y_hat})
+    print(df)
+    df.to_csv('result3.csv', float_format='%.3f')
 
     exit()
 
