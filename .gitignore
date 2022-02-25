@@ -7,3 +7,4 @@ lightning_logs/
 __pycache__/
 project_info.pdf
 brelu.pdf
+result*.csv
