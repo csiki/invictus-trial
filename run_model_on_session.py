@@ -68,9 +68,13 @@ if __name__ == '__main__':
     val_dataset = EMGTestDataset([session_path(vs) for vs in val_sessions])
     # test_dataset = EMGDataset([session_paths[test_session]])
 
+    res_chans = [256] + [128, 256, 512] * 10
+    res_kernel = [3, 5] * 15
+
     model_settings = {
         'dropout': 0.2,
-        'res_block_params':  [(256, 256, (3, 1)) for _ in range(35)],
+        'res_block_params': [(256, 256, (3, 1)) for _ in range(35)],
+        # [(res_chans[i - 1], res_chans[i], (res_kernel[i], 1)) for i in range(1, len(res_chans))],
         # [(256, 256, (5, 1)) for _ in range(10)],
         # [(256, 256, (5, 1)), (256, 512, (5, 1)), (512, 256, (5, 1)), (256, 256, (5, 1))],
         # [(256, 256, (3, 1)), (256, 128, (3, 1)), (128, 64, (3, 1)), (64, 128, (3, 1)), (128, 256, (3, 1))],
@@ -138,9 +142,10 @@ if __name__ == '__main__':
 
     for i in range(10):
         plt.figure()
-        plt.plot(df_data_y[2000:6000, i], label='y')  # [1000:2000, i]
-        plt.plot(df_data_y_hat[2000:6000, i], label='y_hat')
+        plt.plot(df_data_y[3000:7000, i], label='y')  # [1000:2000, i]
+        plt.plot(df_data_y_hat[3000:7000, i], label='y_hat')
         plt.legend()
+        plt.savefig(f'results/{i}.png')
         plt.show()
 
     # print loss
@@ -171,7 +176,7 @@ if __name__ == '__main__':
 
     df = pd.DataFrame({**act_df}) # {**act_df_data_y, **act_df_data_y_hat})
     print(df)
-    df.to_csv('result3.csv', float_format='%.3f')
+    df.to_csv('results/result.csv', float_format='%.3f')
 
     exit()
 

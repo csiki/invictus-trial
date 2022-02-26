@@ -139,7 +139,7 @@ class TrialTask(pl.LightningModule):
         self.log('fingers', fingers, prog_bar=True)
         self.log('smoothness', smoothness, prog_bar=True)
 
-        loss = fingers + 10 * smoothness
+        loss = fingers + 25 * smoothness
         if self.ver == 2:
             loss += 0.1 * model.kld_loss
 
@@ -172,26 +172,24 @@ class TrialTask(pl.LightningModule):
 
 if __name__ == '__main__':
 
-    VER = 2
+    VER = 1
 
     session_path = lambda i: f'data/Session {i}.csv'
 
-    # train_sessions = [1]
-    val_sessions = [6]  #3
-    test_sessions = []  #4
-
-    # train_slices = [(0., 0.7)]
-    # val_slices = [(0.7, 1.0)]
-
-    # train_dataset = EMGDataset([session_path(ts) for ts in train_sessions], train_slices)
+    val_sessions = [6]
     train_dataset = EMGDataset([session_path(i) for i in range(1, 7)
-                                if i not in val_sessions + test_sessions], ver=VER)
+                                if i not in val_sessions], ver=VER)
     val_dataset = EMGDataset([session_path(vs) for vs in val_sessions], ver=VER)
-    # test_dataset = EMGDataset([session_paths[test_session]])
+
+    # res_chans = [256] + [256, 512, 256, 256, 128, 256, 256, 512, 256, 256] * 3
+    # res_kernel = [3, 5] * 15
+    # res_chans = [256] + [256, 512, 256, 256, 256, 256, 256, 512, 256, 256] * 2
+    # res_kernel = [3, 5] * 10
 
     model_settings = {
         'dropout': 0.4,
-        'res_block_params': [(256, 256, (3, 1)) for _ in range(35)],  # TODO
+        'res_block_params': [(256, 256, (3, 1)) for _ in range(35)],
+            # [(res_chans[i - 1], res_chans[i], (res_kernel[i - 1], 1)) for i in range(1, len(res_chans))],
             #[(256, 256, (5, 1)) for _ in range(10)],
             #[(256, 256, (5, 1)), (256, 512, (5, 1)), (512, 256, (5, 1)), (256, 256, (5, 1))],
             #[(256, 256, (3, 1)), (256, 128, (3, 1)), (128, 64, (3, 1)), (64, 128, (3, 1)), (128, 256, (3, 1))],
@@ -216,7 +214,7 @@ if __name__ == '__main__':
     model_name = f'model_{prefix}_batch-{batch_size}_{datetime.datetime.now().strftime("%H-%M-%S")}_dropout-{model_settings["dropout"]}_' \
                  f'res-{len(model_settings["res_block_params"])}-{model_settings["res_block_params"][0][0]}-{model_settings["res_block_params"][0][2]}'
 
-    resume_from_checkpoint = None # 'checkpoints/model_gradclip_batch-256_16-07-22_dropout-0.2_res-35-256-(3, 1)/epoch=19-step=14879.ckpt'  # or None  # TODO !!!!!!!!!!!!!
+    resume_from_checkpoint = 'checkpoints/model_gradclip_batch-256_16-07-22_dropout-0.2_res-35-256-(3, 1)/epoch=19-step=14879.ckpt'  # or None
 
     print('MODEL:', model_name)
 

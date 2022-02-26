@@ -18,7 +18,7 @@ class EMGModel2(Module):
 
         # encoder
         in_chan = 8
-        chans = [16, 32, 64, 128, 256]
+        chans = [32, 32, 64, 128, 256]
         kernel = [5, 3, 3, 3, 3]
         stride = [2, 2, 2, 2, 2]
         padding = [0, 0, 0, 0, 0]
@@ -37,10 +37,6 @@ class EMGModel2(Module):
                 act_fun_cls(),
                 Dropout(dropout),
             ))
-            # encoder.append(convs[i])
-            # encoder.append(BatchNorm1d(chans[i]))
-            # encoder.append(act_fun_cls())
-            # encoder.append(Dropout(dropout))
         self.encoder = ModuleList(encoder_blocks)
 
         # variational
@@ -71,10 +67,6 @@ class EMGModel2(Module):
                 act_fun_cls() if i == len(chans) - 1 else bReLU(1.),
                 Dropout(dropout),
             ))
-            # decoder.append(convs[i])
-            # decoder.append(BatchNorm1d(chans[i]))
-            # decoder.append(act_fun_cls())
-            # decoder.append(Dropout(dropout))
         self.decoder = ModuleList(decoder_blocks)
 
         # TODO conv to reshape to right channel size

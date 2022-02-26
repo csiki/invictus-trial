@@ -38,7 +38,7 @@ class EncoderBlock(Module):
 
 class DecoderBlock(Module):
 
-    def __init__(self, in_chans, out_chans, dropout, upsample_factor, kernel_size=(3, 2), act_fun: Module = ReLU()):  # TODO try snake
+    def __init__(self, in_chans, out_chans, dropout, upsample_factor, kernel_size=(3, 2), act_fun: Module = ReLU()):
         super().__init__()
         stride = (1, 1)
 
@@ -118,10 +118,6 @@ class EMGModel(Module):
 
         # this is for output of 16
         self.decoder = Sequential(
-            # DecoderBlock(256, 128, (5, 5), kernel_size=(3, 1), act_fun=act_fun_cls()),  # TODO why 3,2 here? when only 1 chan
-            # DecoderBlock(128, 32, (4, 2), kernel_size=(3, 2), act_fun=act_fun_cls()),
-            # DecoderBlock(32, 1, (2, 1), kernel_size=(3, 2), act_fun=bReLU(1.)),
-
             DecoderBlock(256, 128, dropout, (125, 2), kernel_size=(3, 1), act_fun=act_fun_cls()),
             DecoderBlock(128, 64, dropout, (250, 4), kernel_size=(3, 2), act_fun=act_fun_cls()),
             DecoderBlock(64, 32, dropout, (500, 8), kernel_size=(3, 2), act_fun=act_fun_cls()),
